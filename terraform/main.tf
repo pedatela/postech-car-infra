@@ -320,7 +320,9 @@ resource "aws_ecs_task_definition" "keycloak" {
         { name = "KC_DB_URL", value = "jdbc:postgresql://${aws_db_instance.keycloak.address}:5432/keycloak" },
         { name = "KC_DB_USERNAME", value = "keycloak" },
         { name = "KC_DB_PASSWORD", value = var.db_admin_password },
-        { name = "KC_HEALTH_ENABLED", value = "true" }
+        { name = "KC_HEALTH_ENABLED", value = "true" },
+        { name = "KC_HOSTNAME_URL", value = "http://${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}" },
+        { name = "KC_HOSTNAME_ADMIN_URL", value = "http://${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}" }
       ]
       portMappings = [{
         containerPort = var.container_port
