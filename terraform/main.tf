@@ -299,11 +299,20 @@ resource "aws_cognito_user_pool_client" "this" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
   prevent_user_existence_errors        = "ENABLED"
+  access_token_validity                = 60
+  id_token_validity                    = 60
+  refresh_token_validity               = 30
 
   callback_urls = var.cognito_callback_urls
   logout_urls   = var.cognito_logout_urls
 
   generate_secret = false
+
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
 }
 
 resource "aws_cognito_user_pool_domain" "this" {
