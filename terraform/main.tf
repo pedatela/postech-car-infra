@@ -2,6 +2,7 @@ locals {
   tags             = { Project = var.project_name }
   keycloak_prefix  = "${var.project_name}-kc"
   application_name = "${var.project_name}-app"
+  keycloak_hostname_effective = var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name
 }
 
 resource "aws_ecr_repository" "app" {
@@ -309,8 +310,6 @@ resource "aws_ecs_task_definition" "keycloak" {
       essential = true
       command = [
         "start",
-        "--hostname=${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}",
-        "--hostname-admin=${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}",
         "--proxy=edge"
       ]
       environment = [
@@ -321,8 +320,9 @@ resource "aws_ecs_task_definition" "keycloak" {
         { name = "KC_DB_USERNAME", value = "keycloak" },
         { name = "KC_DB_PASSWORD", value = var.db_admin_password },
         { name = "KC_HEALTH_ENABLED", value = "true" },
-        { name = "KC_HOSTNAME_URL", value = "http://${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}" },
-        { name = "KC_HOSTNAME_ADMIN_URL", value = "http://${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}" }
+        { name = "KC_HOSTNAME", value = local.keycloak_hostname_effective },
+        { name = "KC_HOSTNAME_URL", value = "http://${local.keycloak_hostname_effective}" },
+        { name = "KC_HOSTNAME_ADMIN_URL", value = "http://${local.keycloak_hostname_effective}" }
       ]
       portMappings = [{
         containerPort = var.container_port
