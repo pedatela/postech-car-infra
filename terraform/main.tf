@@ -310,6 +310,7 @@ resource "aws_ecs_task_definition" "keycloak" {
       command = [
         "start",
         "--hostname=${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}",
+        "--hostname-admin=${var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name}",
         "--proxy=edge"
       ]
       environment = [
