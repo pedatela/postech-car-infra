@@ -320,7 +320,6 @@ resource "aws_ecs_task_definition" "keycloak" {
         { name = "KC_DB_USERNAME", value = "keycloak" },
         { name = "KC_DB_PASSWORD", value = var.db_admin_password },
         { name = "KC_HEALTH_ENABLED", value = "true" },
-        { name = "KC_HOSTNAME", value = local.keycloak_hostname_effective },
         { name = "KC_HOSTNAME_URL", value = "http://${local.keycloak_hostname_effective}" },
         { name = "KC_HOSTNAME_ADMIN_URL", value = "http://${local.keycloak_hostname_effective}" }
       ]
