@@ -1,4 +1,4 @@
-name: Terraform Keycloak
+name: Terraform Infra
 
 on:
   push:
@@ -32,8 +32,6 @@ jobs:
       TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
       TF_BACKEND_REGION: ${{ secrets.TF_BACKEND_REGION || vars.AWS_REGION || 'us-east-1' }}
       TF_BACKEND_DYNAMO_TABLE: ${{ secrets.TF_BACKEND_DYNAMO_TABLE }}
-      TF_VAR_admin_password: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
-      TF_VAR_db_admin_password: ${{ secrets.KEYCLOAK_DB_PASSWORD }}
     permissions:
       contents: read
     steps:
@@ -55,7 +53,7 @@ jobs:
       - name: Terraform Init
         run: |
           set -euo pipefail
-          BACKEND_KEY="${TF_STATE_KEY:-postech-car-keycloak/terraform.tfstate}"
+          BACKEND_KEY="${TF_STATE_KEY:-postech-car/terraform.tfstate}"
           BACKEND_REGION="${TF_BACKEND_REGION:-$AWS_REGION}"
           CMD=(
             terraform init
@@ -108,8 +106,6 @@ jobs:
       TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
       TF_BACKEND_REGION: ${{ secrets.TF_BACKEND_REGION || vars.AWS_REGION || 'us-east-1' }}
       TF_BACKEND_DYNAMO_TABLE: ${{ secrets.TF_BACKEND_DYNAMO_TABLE }}
-      TF_VAR_admin_password: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
-      TF_VAR_db_admin_password: ${{ secrets.KEYCLOAK_DB_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,7 +125,7 @@ jobs:
       - name: Terraform Init
         run: |
           set -euo pipefail
-          BACKEND_KEY="${TF_STATE_KEY:-postech-car-keycloak/terraform.tfstate}"
+          BACKEND_KEY="${TF_STATE_KEY:-postech-car/terraform.tfstate}"
           BACKEND_REGION="${TF_BACKEND_REGION:-$AWS_REGION}"
           CMD=(
             terraform init

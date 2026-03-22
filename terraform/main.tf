@@ -1,8 +1,6 @@
 locals {
-  tags                        = { Project = var.project_name }
-  keycloak_prefix             = "${var.project_name}-kc"
-  application_name            = "${var.project_name}-app"
-  keycloak_hostname_effective = var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name
+  tags             = { Project = var.project_name }
+  application_name = "${var.project_name}-app"
 }
 
 resource "aws_ecr_repository" "app" {
@@ -81,50 +79,6 @@ resource "aws_security_group" "alb" {
   tags = local.tags
 }
 
-resource "aws_security_group" "keycloak_service" {
-  name        = "${local.keycloak_prefix}-svc"
-  description = "Keycloak tasks"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    protocol        = "tcp"
-    from_port       = var.container_port
-    to_port         = var.container_port
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  egress {
-    protocol    = "-1"
-    from_port   = 0
-    to_port     = 0
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = local.tags
-}
-
-resource "aws_security_group" "keycloak_db" {
-  name        = "${local.keycloak_prefix}-db"
-  description = "Postgres for Keycloak"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    protocol        = "tcp"
-    from_port       = 5432
-    to_port         = 5432
-    security_groups = [aws_security_group.keycloak_service.id]
-  }
-
-  egress {
-    protocol    = "-1"
-    from_port   = 0
-    to_port     = 0
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = local.tags
-}
-
 resource "aws_security_group" "app_service" {
   name        = "${local.application_name}-svc"
   description = "App tasks"
@@ -147,39 +101,12 @@ resource "aws_security_group" "app_service" {
   tags = local.tags
 }
 
-resource "aws_lb" "keycloak" {
-  name               = "${local.keycloak_prefix}-alb"
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
-  subnets            = values(aws_subnet.public)[*].id
-  tags               = local.tags
-}
-
 resource "aws_lb" "app" {
   name               = "${local.application_name}-alb"
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = values(aws_subnet.public)[*].id
   tags               = local.tags
-}
-
-resource "aws_lb_target_group" "keycloak" {
-  name        = "${local.keycloak_prefix}-tg"
-  port        = var.container_port
-  protocol    = "HTTP"
-  target_type = "ip"
-  vpc_id      = aws_vpc.main.id
-
-  health_check {
-    matcher             = "200-399"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    path                = "/health/ready"
-  }
-
-  tags = local.tags
 }
 
 resource "aws_lb_target_group" "app" {
@@ -201,17 +128,6 @@ resource "aws_lb_target_group" "app" {
   tags = local.tags
 }
 
-resource "aws_lb_listener" "keycloak_http" {
-  load_balancer_arn = aws_lb.keycloak.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.keycloak.arn
-  }
-}
-
 resource "aws_lb_listener" "app_http" {
   load_balancer_arn = aws_lb.app.arn
   port              = 80
@@ -226,12 +142,6 @@ resource "aws_lb_listener" "app_http" {
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
   tags = local.tags
-}
-
-resource "aws_cloudwatch_log_group" "keycloak" {
-  name              = "/ecs/${local.keycloak_prefix}"
-  retention_in_days = 7
-  tags              = local.tags
 }
 
 resource "aws_cloudwatch_log_group" "app" {
@@ -271,75 +181,6 @@ resource "aws_iam_role" "task" {
   })
 }
 
-resource "aws_db_subnet_group" "keycloak" {
-  name       = "${local.keycloak_prefix}-db"
-  subnet_ids = values(aws_subnet.public)[*].id
-}
-
-resource "aws_db_instance" "keycloak" {
-  identifier             = "${local.keycloak_prefix}-db"
-  allocated_storage      = var.db_allocated_storage
-  engine                 = "postgres"
-  engine_version         = "15"
-  instance_class         = var.db_instance_class
-  username               = "keycloak"
-  password               = var.db_admin_password
-  db_name                = "keycloak"
-  db_subnet_group_name   = aws_db_subnet_group.keycloak.name
-  vpc_security_group_ids = [aws_security_group.keycloak_db.id]
-  publicly_accessible    = true
-  skip_final_snapshot    = true
-  apply_immediately      = true
-  deletion_protection    = false
-  tags                   = local.tags
-}
-
-resource "aws_ecs_task_definition" "keycloak" {
-  family                   = "${local.keycloak_prefix}-task"
-  cpu                      = "512"
-  memory                   = "1024"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = aws_iam_role.task_execution.arn
-  task_role_arn            = aws_iam_role.task.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "keycloak"
-      image     = "quay.io/keycloak/keycloak:${var.keycloak_version}"
-      essential = true
-      command = [
-        "start",
-        "--proxy=edge"
-      ]
-      environment = [
-        { name = "KEYCLOAK_ADMIN", value = var.admin_user },
-        { name = "KEYCLOAK_ADMIN_PASSWORD", value = var.admin_password },
-        { name = "KC_DB", value = "postgres" },
-        { name = "KC_DB_URL", value = "jdbc:postgresql://${aws_db_instance.keycloak.address}:5432/keycloak" },
-        { name = "KC_DB_USERNAME", value = "keycloak" },
-        { name = "KC_DB_PASSWORD", value = var.db_admin_password },
-        { name = "KC_HEALTH_ENABLED", value = "true" },
-        { name = "KC_HOSTNAME_URL", value = "http://${local.keycloak_hostname_effective}" },
-        { name = "KC_HOSTNAME_ADMIN_URL", value = "http://${local.keycloak_hostname_effective}" }
-      ]
-      portMappings = [{
-        containerPort = var.container_port
-        hostPort      = var.container_port
-        protocol      = "tcp"
-      }]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.keycloak.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "keycloak"
-        }
-      }
-    }
-  ])
-}
-
 resource "aws_ecs_task_definition" "app" {
   family                   = "${local.application_name}-task"
   cpu                      = "256"
@@ -367,35 +208,26 @@ resource "aws_ecs_task_definition" "app" {
           awslogs-stream-prefix = local.application_name
         }
       }
-      environment = [{
-        name  = "PORT"
-        value = tostring(var.app_container_port)
-      }]
+      environment = [
+        {
+          name  = "PORT"
+          value = tostring(var.app_container_port)
+        },
+        {
+          name  = "COGNITO_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "COGNITO_USER_POOL_ID"
+          value = aws_cognito_user_pool.this.id
+        },
+        {
+          name  = "COGNITO_CLIENT_ID"
+          value = aws_cognito_user_pool_client.this.id
+        }
+      ]
     }
   ])
-}
-
-resource "aws_ecs_service" "keycloak" {
-  name            = "${local.keycloak_prefix}-svc"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.keycloak.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
-  depends_on      = [aws_lb_listener.keycloak_http]
-
-  network_configuration {
-    subnets          = values(aws_subnet.public)[*].id
-    security_groups  = [aws_security_group.keycloak_service.id]
-    assign_public_ip = true
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.keycloak.arn
-    container_name   = "keycloak"
-    container_port   = var.container_port
-  }
-
-  tags = local.tags
 }
 
 resource "aws_ecs_service" "app" {
@@ -422,4 +254,51 @@ resource "aws_ecs_service" "app" {
   }
 
   tags = local.tags
+}
+
+resource "random_string" "cognito_domain_suffix" {
+  length  = 5
+  upper   = false
+  special = false
+}
+
+resource "aws_cognito_user_pool" "this" {
+  name = "${var.project_name}-users"
+
+  auto_verified_attributes = ["email"]
+
+  password_policy {
+    minimum_length    = 8
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = false
+    require_uppercase = true
+  }
+
+  admin_create_user_config {
+    allow_admin_create_user_only = false
+  }
+
+  tags = local.tags
+}
+
+resource "aws_cognito_user_pool_client" "this" {
+  name         = "${var.project_name}-app-client"
+  user_pool_id = aws_cognito_user_pool.this.id
+
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  supported_identity_providers         = ["COGNITO"]
+  prevent_user_existence_errors        = "ENABLED"
+
+  callback_urls = var.cognito_callback_urls
+  logout_urls   = var.cognito_logout_urls
+
+  generate_secret = false
+}
+
+resource "aws_cognito_user_pool_domain" "this" {
+  domain       = "${var.project_name}-${random_string.cognito_domain_suffix.result}"
+  user_pool_id = aws_cognito_user_pool.this.id
 }
