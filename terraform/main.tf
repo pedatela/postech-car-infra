@@ -175,7 +175,7 @@ resource "aws_lb_target_group" "keycloak" {
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 2
-    path                = "/"
+    path                = "/health/ready"
   }
 
   tags = local.tags
