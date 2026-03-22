@@ -1,7 +1,7 @@
 locals {
-  tags             = { Project = var.project_name }
-  keycloak_prefix  = "${var.project_name}-kc"
-  application_name = "${var.project_name}-app"
+  tags                        = { Project = var.project_name }
+  keycloak_prefix             = "${var.project_name}-kc"
+  application_name            = "${var.project_name}-app"
   keycloak_hostname_effective = var.keycloak_hostname != "" ? var.keycloak_hostname : aws_lb.keycloak.dns_name
 }
 
