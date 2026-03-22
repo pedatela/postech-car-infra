@@ -319,7 +319,8 @@ resource "aws_ecs_task_definition" "keycloak" {
         { name = "KC_DB", value = "postgres" },
         { name = "KC_DB_URL", value = "jdbc:postgresql://${aws_db_instance.keycloak.address}:5432/keycloak" },
         { name = "KC_DB_USERNAME", value = "keycloak" },
-        { name = "KC_DB_PASSWORD", value = var.db_admin_password }
+        { name = "KC_DB_PASSWORD", value = var.db_admin_password },
+        { name = "KC_HEALTH_ENABLED", value = "true" }
       ]
       portMappings = [{
         containerPort = var.container_port
