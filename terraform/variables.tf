@@ -43,3 +43,9 @@ variable "cognito_logout_urls" {
     "http://localhost:3000/logout"
   ]
 }
+
+variable "auth_required_role" {
+  description = "Role mínima exigida pela aplicação (exposta via AUTH_REQUIRED_ROLE)"
+  type        = string
+  default     = "buyer"
+}

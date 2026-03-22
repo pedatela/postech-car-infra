@@ -224,6 +224,14 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "COGNITO_CLIENT_ID"
           value = aws_cognito_user_pool_client.this.id
+        },
+        {
+          name  = "COGNITO_ISSUER"
+          value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.this.id}"
+        },
+        {
+          name  = "AUTH_REQUIRED_ROLE"
+          value = var.auth_required_role
         }
       ]
     }
